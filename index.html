@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>अपग्रेडेड गेम</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { overflow: hidden; }
+        
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #fff;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .control-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <button class="control-btn" id="btnLeft">←</button>
+        <button class="control-btn" id="btnUp">↑</button>
+        <button class="control-btn" id="btnRight">→</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let camera, scene, renderer, player;
+        let moveSpeed = 0.1;
+        let isUpPressed = false;
+        let isLeftPressed = false;
+        let isRightPressed = false;
+
+        init();
+        animate();
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(100, 100);
+            const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Player (Capsule shape)
+            const playerGeometry = new THREE.CapsuleGeometry(0.3, 1, 4, 8);
+            const playerMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xff0000,
+                metalness: 0.3,
+                roughness: 0.8
+            });
+            player = new THREE.Mesh(playerGeometry, playerMaterial);
+            player.castShadow = true;
+            player.position.set(0, 1, 0);
+            scene.add(player);
+
+            // House
+            createHouse(5, 0, 5);
+            createHouse(-5, 0, -5);
+
+            // Mountains
+            createMountain(-20, 0, -20);
+            createMountain(20, 0, 20);
+
+            // Trees
+            createTree(8, 0, 8);
+            createTree(-8, 0, -8);
+
+            camera.position.set(0, 10, 15);
+            camera.lookAt(player.position);
+
+            setupControls();
+        }
+
+        function createHouse(x, y, z) {
+            // Main structure
+            const houseGeometry = new THREE.BoxGeometry(3, 2, 3);
+            const houseMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xffd700,
+                metalness: 0.2,
+                roughness: 0.5
+            });
+            const house = new THREE.Mesh(houseGeometry, houseMaterial);
+            house.position.set(x, y+1, z);
+            house.castShadow = true;
+            scene.add(house);
+
+            // Roof
+            const roofGeometry = new THREE.ConeGeometry(2.5, 1.5, 4);
+            const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
+            const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+            roof.position.set(x, y+2.5, z);
+            roof.rotation.y = Math.PI/4;
+            roof.castShadow = true;
+            scene.add(roof);
+        }
+
+        function createMountain(x, y, z) {
+            const mountainGeometry = new THREE.ConeGeometry(8, 10, 32);
+            const mountainMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x808080,
+                wireframe: false
+            });
+            const mountain = new THREE.Mesh(mountainGeometry, mountainMaterial);
+            mountain.position.set(x, y-5, z);
+            mountain.rotation.y = Math.random() * Math.PI;
+            mountain.castShadow = true;
+            scene.add(mountain);
+        }
+
+        function createTree(x, y, z) {
+            // Trunk
+            const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2);
+            const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.set(x, y+1, z);
+            
+            // Leaves
+            const leavesGeometry = new THREE.SphereGeometry(1.5);
+            const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+            leaves.position.set(x, y+2.5, z);
+            
+            scene.add(trunk);
+            scene.add(leaves);
+        }
+
+        function setupControls() {
+            const btnUp = document.getElementById('btnUp');
+            const btnLeft = document.getElementById('btnLeft');
+            const btnRight = document.getElementById('btnRight');
+
+            // Touch events
+            const handleStart = (dir) => {
+                if(dir === 'up') isUpPressed = true;
+                if(dir === 'left') isLeftPressed = true;
+                if(dir === 'right') isRightPressed = true;
+            }
+
+            const handleEnd = (dir) => {
+                if(dir === 'up') isUpPressed = false;
+                if(dir === 'left') isLeftPressed = false;
+                if(dir === 'right') isRightPressed = false;
+            }
+
+            btnUp.addEventListener('touchstart', () => handleStart('up'));
+            btnUp.addEventListener('touchend', () => handleEnd('up'));
+            btnLeft.addEventListener('touchstart', () => handleStart('left'));
+            btnLeft.addEventListener('touchend', () => handleEnd('left'));
+            btnRight.addEventListener('touchstart', () => handleStart('right'));
+            btnRight.addEventListener('touchend', () => handleEnd('right'));
+
+            // Mouse events
+            btnUp.addEventListener('mousedown', () => handleStart('up'));
+            btnUp.addEventListener('mouseup', () => handleEnd('up'));
+            btnLeft.addEventListener('mousedown', () => handleStart('left'));
+            btnLeft.addEventListener('mouseup', () => handleEnd('left'));
+            btnRight.addEventListener('mousedown', () => handleStart('right'));
+            btnRight.addEventListener('mouseup', () => handleEnd('right'));
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Player movement
+            if(isUpPressed) player.position.z -= moveSpeed;
+            if(isLeftPressed) player.position.x -= moveSpeed;
+            if(isRightPressed) player.position.x += moveSpeed;
+
+            // Simple animation
+            player.position.y = 1 + Math.sin(Date.now() * 0.005) * 0.3;
+
+            // Camera follow
+            camera.position.x = player.position.x;
+            camera.position.z = player.position.z + 15;
+            camera.lookAt(player.position);
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
